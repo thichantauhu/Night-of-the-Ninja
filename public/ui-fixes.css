@@ -1,11 +1,14 @@
 /* UI refinements: draft flow, phase labels, card hierarchy, and action contrast */
 .phase-list span{font-size:12px!important;font-weight:800!important;padding:7px 9px!important}
 .phase-list span.active{font-weight:900!important}
-.fixed-ncard .type{font-size:17px!important;font-weight:900!important;letter-spacing:.2px!important;color:#ffffff!important;text-shadow:0 1px 2px #000!important}
-.fixed-ncard.phase-current .type{color:#f4d35e!important;text-shadow:0 1px 2px #000!important}
-.fixed-ncard .num{font-size:29px!important;font-weight:900!important;margin-top:4px}
-.fixed-ncard .name{font-size:14px!important;font-weight:400!important;margin:7px 0!important;color:#f1f3f5!important}
-.fixed-ncard .desc{font-size:12px!important;color:#d9dde3!important}
+.fixed-ncard .type{font-size:17px!important;font-weight:900!important;letter-spacing:.2px!important;color:#17191f!important;text-shadow:none!important}
+.fixed-ncard.phase-current .type{color:#ffffff!important;text-shadow:0 1px 2px #000!important}
+.fixed-ncard .num{font-size:29px!important;font-weight:900!important;margin-top:4px;color:#17191f!important}
+.fixed-ncard .name{font-size:14px!important;font-weight:400!important;margin:7px 0!important;color:#17191f!important}
+.fixed-ncard .desc{font-size:12px!important;color:#6c7078!important}
+.fixed-ncard.phase-current .num{color:#ffffff!important}
+.fixed-ncard.phase-current .name{color:#ffffff!important}
+.fixed-ncard.phase-current .desc{color:#ffffff!important}
 .draft-owned{margin-bottom:18px}
 .draft-owned .hand-title,.draft-select .hand-title{font-size:13px;font-weight:900;color:#5d626b;letter-spacing:1.3px;margin:8px 0 10px}
 .draft-owned .cardgrid,.draft-select .cardgrid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
