@@ -1,5 +1,20 @@
 /* Reveal board: show all played cards in number order, player name, card number, name, info, and highlight the active action. */
 (function(){
+const CARD_INFO={
+ SPY:'Xem bí mật thẻ Nhà của 1 người chơi khác.',
+ MYSTIC:'Xem bí mật thẻ Nhà và 1 lá Ninja của 1 người chơi khác.',
+ 'BLIND ASSASSIN':'Chọn 1 người chơi và giết họ.',
+ SHINOBI:'Xem thẻ Nhà của 1 người chơi; sau đó có thể giết họ.',
+ Shapeshifter:'Xem Nhà của 2 người rồi bí mật đổi chỗ 2 thẻ Nhà.',
+ Gravedigger:'Xem 2 lá Ninja đã bị bỏ khỏi Draft và chọn 1 lá. Có thể dùng ngay hoặc giữ lại để dùng sau.',
+ Troublemaker:'Xem Nhà của 1 người; có thể công khai thông tin đó.',
+ 'Spirit Merchant':'Xem thẻ Nhà hoặc Danh dự của 1 người; có thể đổi 1 token Danh dự với họ.',
+ Thief:'Lộ Nhà của mình; lấy 1 token Danh dự từ 1 người có nhiều hơn mình.',
+ Judge:'Lộ Nhà của mình; chọn 1 người và giết họ.',
+ 'MIRROR MONK':'Phản ứng khi Sát thủ mù hoặc Ninja chọn giết bạn: giết kẻ tấn công thay bạn.',
+ MARTYR:'Phản ứng khi Sát thủ mù hoặc Ninja chọn giết bạn: nhận 1 token Danh dự rồi vẫn bị giết.',
+ MASTERMIND:'Nếu còn sống khi kết thúc vòng, Nhà của bạn được tính là hạng 1.'
+};
 const style=document.createElement('style');
 style.textContent=`
 .reveal-board-fixed{width:100%;padding:20px 12px 24px;text-align:center;box-sizing:border-box}
@@ -37,12 +52,13 @@ function renderRevealCenterFixed(){
    <div class="reveal-cards-fixed">${all.map((x,i)=>{
      const cls=i===active?'active':i<active?'done':'';
      const card=x.card||{};
+     const info=card.text||CARD_INFO[card.original]||CARD_INFO[card.type]||'';
      return `<div class="reveal-card-fixed ${cls}">
        <div class="action-number">HÀNH ĐỘNG ${i+1}</div>
        <div class="actor">${esc(x.playerName||'?')}</div>
        <div class="card-number">${card.num??''}</div>
-       <div class="card-name">${esc(TYPE[card.type]||card.name||card.type||'')}</div>
-       ${card.text?`<div class="card-desc">${esc(card.text)}</div>`:''}
+       <div class="card-name">${esc(TYPE[card.type]||card.name||card.original||card.type||'')}</div>
+       ${info?`<div class="card-desc">${esc(info)}</div>`:''}
        ${i===active?'<div class="active-label">ĐANG HÀNH ĐỘNG</div>':''}
      </div>`;
    }).join('')}</div>
