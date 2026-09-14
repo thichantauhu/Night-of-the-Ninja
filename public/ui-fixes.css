@@ -1,7 +1,8 @@
-/* UI refinements: draft flow, phase labels, and card hierarchy */
+/* UI refinements: draft flow, phase labels, card hierarchy, and action contrast */
 .phase-list span{font-size:12px!important;font-weight:800!important;padding:7px 9px!important}
 .phase-list span.active{font-weight:900!important}
 .fixed-ncard .type{font-size:17px!important;font-weight:900!important;letter-spacing:.2px!important;color:#17191f!important}
+.fixed-ncard.phase-current .type{color:#f4d35e!important;text-shadow:0 1px 1px #0008!important}
 .fixed-ncard .num{font-size:29px!important;font-weight:900!important;margin-top:4px}
 .fixed-ncard .name{font-size:14px!important;font-weight:400!important;margin:7px 0!important}
 .fixed-ncard .desc{font-size:12px!important}
@@ -12,3 +13,5 @@
 .draft-select .fixed-ncard{cursor:pointer}
 .draft-select .fixed-ncard:hover{transform:translateY(-3px);box-shadow:0 8px 20px #00000012}
 .draft-select .draft-hint{margin:0 0 10px;color:#6c7078;font-size:13px}
+.confirm-target:disabled{opacity:.65;cursor:wait}
+.target-btn.selected{font-weight:900}
