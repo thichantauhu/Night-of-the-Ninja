@@ -1,0 +1,50 @@
+/* Standalone visual variant based on the supplied UI reference. */
+:root{--ink:#151922;--muted:#747a85;--line:#e2e5ea;--soft:#f6f7f9;--blue:#1677ff}
+body{background:#f4f6f8;color:var(--ink)}
+.topbar{display:none!important}
+.layout{max-width:1600px;grid-template-columns:250px minmax(0,1fr);gap:14px;padding:12px}
+.side{display:none!important}
+.players{padding:14px;height:max-content;position:sticky;top:12px}
+.players .section-title{font-size:12px;margin-bottom:8px}
+.player{padding:9px 8px;font-size:13px}
+.player.me{background:#eaf2ff}
+.board{min-width:0}
+.phasebar{padding:14px 18px;min-height:82px}
+.phasebar h2{font-size:25px;margin:3px 0 0}
+.phase-subtitle{font-size:13px;color:#7a808a;margin-top:5px}
+.phase-list{gap:5px;max-width:520px}
+.phase-list span{font-size:11px;padding:7px 10px;border-radius:7px}
+.notice{display:none}
+.center{min-height:260px;margin-top:10px;padding:0;overflow:hidden}
+.center .empty{padding:66px 20px}
+.center .empty h3{font-size:21px;margin:10px 0 7px;color:#343945}
+.center .empty p{font-size:14px;color:#737984}
+.reveal-board{padding:20px 18px 22px}
+.reveal-board .eyebrow{font-size:11px}
+.reveal-board h3{font-size:20px}
+.reveal-help{color:#707680;font-size:13px}
+.revealed-cards{gap:14px}
+.revealed-card{width:190px;min-height:205px;border:1px solid #d9dde3;border-radius:12px;box-shadow:0 2px 8px #00000008;padding:15px}
+.revealed-card.resolving{background:#171a20;color:#fff;border:3px solid #171a20;box-shadow:0 10px 28px #00000024,0 0 0 3px #e0e7f0}
+.revealed-card.done{opacity:.48}
+.reveal-player{font-size:14px}.reveal-num{font-size:34px}.reveal-name{font-size:15px;font-weight:800}.turn-badge{background:#126fe8;border-radius:8px;padding:7px;font-size:11px;color:#fff}
+.preview-bottom{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(300px,1.7fr) minmax(230px,1fr);gap:12px;margin-top:12px;align-items:stretch}
+.preview-bottom .hand{margin:0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0;box-shadow:0 3px 12px #00000008}
+.preview-log,.preview-action{min-height:190px;padding:14px}
+.preview-section-title,.preview-log .section-title{font-size:12px;letter-spacing:1.4px;font-weight:900;color:#707680;margin-bottom:12px}
+.preview-log .log-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:8px 0;border-bottom:1px solid #f0f1f3}
+.log-dot{width:8px;height:8px;border-radius:50%;background:#48a868;flex:0 0 auto}.log-dot.me{background:#438cf0}.log-dot.skip{background:#a9afb8}
+.log-name{font-weight:750;flex:1}.log-time{font-size:10px;color:#9aa0a9}
+.preview-action{background:#fff}.preview-action #actionArea{margin:0}.preview-action #actionArea:before{content:'Bạn có muốn đánh lá đang ở pha này?';display:block;font-size:14px;font-weight:850;margin:3px 0 7px}
+.preview-action #actionArea:after{content:'Nếu không đánh, bạn có thể bỏ qua lượt này.';display:block;color:#777d87;font-size:12px;margin-bottom:10px}
+.preview-action .action-row{margin-top:8px}
+.preview-action .action-row button{width:100%;background:#edf0f4;color:#252932}
+.preview-action #actionArea>.target-panel,.preview-action #actionArea>.grave-panel,.preview-action #actionArea>.grave-choice,.preview-action #actionArea>.reaction-panel{position:relative;z-index:2}
+.preview-action #actionArea>.target-panel{margin-top:8px}
+.preview-info{margin-top:12px;padding:14px;display:grid;grid-template-columns:auto 1fr 1fr;gap:14px;align-items:center}
+.preview-info .info-card{width:108px;min-height:125px;border:1px solid #d7dbe1;border-radius:10px;background:#fff;padding:9px;box-shadow:0 2px 7px #00000008}
+.preview-info .info-card .info-num{font-size:24px;font-weight:900}.preview-info .info-card .info-name{font-size:11px;font-weight:900}.preview-info .info-card .info-art{height:55px;margin:5px 0;border-radius:7px;background:linear-gradient(145deg,#eceff3,#d9dde3);display:flex;align-items:center;justify-content:center;font-size:26px}
+.preview-info h3{margin:0 0 5px;font-size:18px}.preview-info p{margin:4px 0;color:#656b75;font-size:13px;line-height:1.45}.preview-info .info-note{border-left:1px solid #e5e7eb;padding-left:14px}.preview-info .info-note b{font-size:11px;letter-spacing:1.1px;color:#7b818b}
+.hand-title{font-size:12px;margin:0 0 10px}.hand .cardgrid{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}.hand .ncard{min-height:160px;border-radius:10px;padding:12px}.hand .ncard.phase-current{box-shadow:0 6px 16px #00000016}.hand .ncard .num{font-size:25px}.hand .ncard .type{font-size:12px}.hand .ncard .name{font-size:13px}.hand .ncard .desc{font-size:11px}
+@media(max-width:1050px){.layout{grid-template-columns:210px 1fr}.preview-bottom{grid-template-columns:1fr 1.4fr}.preview-action{grid-column:1/-1}.preview-info{grid-template-columns:auto 1fr}}
+@media(max-width:720px){.layout{display:block;padding:8px}.players{position:static;margin-bottom:8px}.players #players{display:flex;overflow:auto}.player{min-width:130px}.phasebar{display:block}.phase-list{margin-top:12px;justify-content:flex-start}.center{min-height:220px}.preview-bottom{display:block}.preview-log,.preview-bottom .hand,.preview-action{margin-top:8px}.preview-info{grid-template-columns:auto 1fr}.preview-info .info-note{display:none}}
