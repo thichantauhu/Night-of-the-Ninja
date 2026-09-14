@@ -1,4 +1,4 @@
-/* UI refinements: draft flow, phase labels, card hierarchy, and action contrast */
+/* UI refinements: draft flow, phase labels, card hierarchy, action contrast, shared controls */
 .phase-list span{font-size:12px!important;font-weight:800!important;padding:7px 9px!important}
 .phase-list span.active{font-weight:900!important}
 .fixed-ncard .type{font-size:17px!important;font-weight:900!important;letter-spacing:.2px!important;color:#17191f!important;text-shadow:none!important}
@@ -18,3 +18,13 @@
 .draft-select .draft-hint{margin:0 0 10px;color:#6c7078;font-size:13px}
 .confirm-target:disabled{opacity:.65;cursor:wait}
 .target-btn.selected{font-weight:900}
+.shared-controls{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px;justify-content:center}
+.shared-controls button{padding:9px 14px;border-radius:9px;border:1px solid #cfd3d8;background:#fff;font-weight:800;cursor:pointer}
+.shared-controls button.danger{border-color:#d66;background:#fff4f4}
+.pass-order{margin:16px auto 0;max-width:430px;border:1px solid #d7dbe0;border-radius:12px;background:#fff;padding:13px 16px;text-align:left;box-shadow:0 4px 14px #0000000a}
+.pass-title{font-size:12px;font-weight:900;letter-spacing:1px;color:#5d626b;margin-bottom:8px}
+.pass-row{display:grid;grid-template-columns:1fr 28px 1fr;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #eef0f2;font-size:13px}
+.pass-row:first-of-type{border-top:0}
+.pass-row b{text-align:center;font-size:17px}
+.kick-player{margin-left:auto;padding:4px 8px!important;border:1px solid #e0a0a0!important;border-radius:7px!important;background:#fff7f7!important;color:#a22!important;font-size:11px!important;font-weight:800!important;cursor:pointer}
+.player.kicked{opacity:.65}
