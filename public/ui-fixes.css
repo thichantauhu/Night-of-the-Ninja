@@ -1,5 +1,5 @@
 /* UI refinements: draft flow, phase labels, card hierarchy, action contrast, player/pass table */
-.layout{grid-template-columns:220px minmax(400px,1fr) 310px!important}
+.layout{grid-template-columns:300px minmax(400px,1fr) 310px!important}
 .players{padding:15px!important}
 .player-pass-row{grid-template-columns:12px minmax(0,1fr) 42px 18px minmax(0,1fr)!important;gap:5px!important;min-height:38px!important}
 .player-pass-row .pname{font-size:13px!important}.player-pass-row .pass-to{font-size:12px!important}.player-pass-row .dot{grid-column:1}.player-pass-row .pname{grid-column:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.player-pass-row .kick-player,.player-pass-row .kick-placeholder{grid-column:3;justify-self:start}.player-pass-row .pass-arrow{grid-column:4;text-align:center;font-size:14px;font-weight:900}.player-pass-row .pass-to{grid-column:5;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kick-placeholder{width:42px;height:1px;display:block}.kick-player{margin-left:0;padding:4px 7px!important;border:1px solid #e0a0a0!important;border-radius:7px!important;background:#fff7f7!important;color:#a22!important;font-size:10px!important;font-weight:800!important;cursor:pointer}.player.kicked{opacity:.65}
