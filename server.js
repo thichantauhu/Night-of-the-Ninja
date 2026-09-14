@@ -2,173 +2,42 @@ import express from 'express';
 import http from 'http';
 import crypto from 'crypto';
 import {WebSocketServer} from 'ws';
-
-const app=express();
-app.use(express.static('public'));
-const server=http.createServer(app),wss=new WebSocketServer({server}),rooms=new Map();
+const app=express();app.use(express.static('public'));const server=http.createServer(app),wss=new WebSocketServer({server}),rooms=new Map();
 const phases=['SPY','MYSTIC','TRICKSTER','BLIND ASSASSIN','SHINOBI'];
 const uid=()=>crypto.randomBytes(5).toString('hex');
 const send=(p,type,data={})=>p?.ws?.readyState===1&&p.ws.send(JSON.stringify({type,...data}));
 const houseVi=h=>h==='Lotus'?'Hoa Sen':h==='Crane'?'Sếu':'Lãng khách';
 const phaseVi=x=>({SPY:'Gián điệp',MYSTIC:'Nhà tiên tri',TRICKSTER:'Kẻ lừa đảo','BLIND ASSASSIN':'Sát thủ mù',SHINOBI:'Ninja'})[x]||x;
-const pub=p=>({id:p.id,name:p.name,alive:p.alive,honor:p.honor,connected:!!p.ws,bot:!!p.bot,ronin:!!p.ronin});
-const getP=(r,id)=>r.players.find(p=>p.id===id);
-const honorToken=()=>2+Math.floor(Math.random()*3);
-
-function state(r){
-  const reaction=r.reaction?{targetId:r.reaction.targetId,attackerId:r.reaction.attackerId,source:r.reaction.source}:null;
-  return {code:r.code,status:r.status,phase:r.phase,round:r.round,host:r.host,players:r.players.map(pub),log:r.log.slice(-30),winner:r.winner,ronin:r.players.find(p=>p.ronin)?.id||null,revealed:r.revealed||[],resolving:r.resolving??-1,resolvingPid:r.resolvingPid||null,pendingCount:r.pending?.size||0,reaction};
-}
+const getP=(r,id)=>r.players.find(p=>p.id===id); const honorToken=()=>2+Math.floor(Math.random()*3);
+function pub(p){return {id:p.id,name:p.name,alive:p.alive,honor:p.honor,connected:!!p.ws,bot:!!p.bot,ronin:!!p.ronin}}
+function state(r){return {code:r.code,status:r.status,phase:r.phase,round:r.round,host:r.host,players:r.players.map(pub),log:r.log.slice(-30),winner:r.winner,ronin:r.players.find(p=>p.ronin)?.id||null,revealed:r.revealed||[],resolving:r.resolving??-1,resolvingPid:r.resolvingPid||null,pendingCount:r.pending?.size||0,reaction:r.reaction?{targetId:r.reaction.targetId,attackerId:r.reaction.attackerId,source:r.reaction.source}:null,grave:r.grave?{targetId:r.grave.pid}:null,graveChoice:r.graveChoice?{pid:r.graveChoice.pid,card:r.graveChoice.card}:null}}
 function push(r,t){r.log.push(t)}
-function sync(r){
-  r.players.forEach(p=>{
-    send(p,'state',{room:state(r)});
-    const reaction=r.reaction&&r.reaction.targetId===p.id?{
-      attackerName:getP(r,r.reaction.attackerId)?.name||'Kẻ tấn công',
-      source:r.reaction.source,
-      options:(p.hand||[]).filter(c=>c.type==='MIRROR MONK'||c.type==='MARTYR').map(c=>c.type)
-    }:null;
-    send(p,'private',{house:p.house,rank:p.rank,ronin:!!p.ronin,honor:p.honor,alive:p.alive,hand:p.hand||[],known:p.known||[],draft:r.draftHands?.[p.id]||[],reaction});
-  });
-}
-
-function makeDeck(){
-  const a=[];
-  for(let n=1;n<=6;n++){
-    a.push({id:uid(),type:'SPY',num:n,name:'Gián điệp',text:'Xem bí mật thẻ Nhà của 1 người chơi khác.'});
-    a.push({id:uid(),type:'MYSTIC',num:n,name:'Nhà tiên tri',text:'Xem bí mật thẻ Nhà và 1 lá Ninja của 1 người chơi khác.'});
-    a.push({id:uid(),type:'BLIND ASSASSIN',num:n,name:'Sát thủ mù',text:'Chọn 1 người chơi và giết họ.'});
-    a.push({id:uid(),type:'SHINOBI',num:n,name:'Ninja',text:'Xem thẻ Nhà của 1 người chơi; sau đó có thể giết họ.'});
-  }
-  const tricks=[
-    ['Shapeshifter','Kẻ biến hình','Xem Nhà của 2 người rồi bí mật đổi chỗ 2 thẻ Nhà.'],
-    ['Gravedigger','Kẻ đào mộ','Lấy 1 lá Ninja đã bị bỏ khỏi draft; có thể dùng ở pha thích hợp sau.'],
-    ['Troublemaker','Kẻ gây rối','Xem Nhà của 1 người; có thể công khai thông tin đó.'],
-    ['Spirit Merchant','Thương nhân linh hồn','Xem thẻ Nhà hoặc Danh dự của 1 người; có thể đổi 1 token Danh dự với họ.'],
-    ['Thief','Kẻ trộm','Lộ Nhà của mình; lấy 1 token Danh dự từ 1 người có nhiều hơn mình.'],
-    ['Judge','Quan tòa','Lộ Nhà của mình; chọn 1 người và giết họ. Tăng lữ Gương/Kẻ tử vì đạo không thể phản ứng.']
-  ];
-  tricks.forEach((x,i)=>a.push({id:uid(),type:'TRICKSTER',num:i+1,name:x[1],original:x[0],text:x[2]}));
-  a.push({id:uid(),type:'MIRROR MONK',name:'Tăng lữ Gương',text:'PHẢN ỨNG: Khi Sát thủ mù hoặc Ninja chọn GIẾT bạn, lật lá này để giết kẻ tấn công thay bạn. Không dùng trước Quan tòa.'});
-  a.push({id:uid(),type:'MARTYR',name:'Kẻ tử vì đạo',text:'PHẢN ỨNG: Khi Sát thủ mù hoặc Ninja chọn GIẾT bạn, lật lá này để nhận 1 token Danh dự rồi vẫn bị giết. Không dùng trước Quan tòa.'});
-  a.push({id:uid(),type:'MASTERMIND',name:'Kẻ chủ mưu',text:'LẬT CUỐI VÒNG: Nếu còn sống, Nhà của bạn được tính là hạng 1 khi Lật thẻ Nhà.'});
-  return a.sort(()=>Math.random()-.5);
-}
-function makeHouses(n){
-  const a=[],team=Math.floor(n/2);
-  for(let i=1;i<=team;i++)a.push({house:'Lotus',rank:i,ronin:false});
-  for(let i=1;i<=team;i++)a.push({house:'Crane',rank:i,ronin:false});
-  if(n%2)a.push({house:null,rank:null,ronin:true});
-  return a.sort(()=>Math.random()-.5);
-}
-function startRound(r){
-  r.status='draft';r.round++;r.phase=null;r.phaseIndex=0;r.log=[];r.winner=null;r.reaction=null;r.revealed=[];r.resolving=-1;r.resolvingPid=null;
-  const hs=makeHouses(r.players.length);r.deck=makeDeck();r.draftHands={};r.kept={};r.draftStage=1;r.discarded=[];
-  r.players.forEach((p,i)=>{const h=hs[i];p.house=h.house;p.rank=h.rank;p.ronin=h.ronin;p.alive=true;p.hand=[];p.known=[];p.honor=p.honor||0;r.draftHands[p.id]=[r.deck.pop(),r.deck.pop(),r.deck.pop()];r.kept[p.id]=[]});
-  push(r,`Vòng ${r.round}: phát Nhà bí mật và 3 lá Ninja.`);sync(r);botDraft(r);
-}
+function sync(r){r.players.forEach(p=>{send(p,'state',{room:state(r)});const reaction=r.reaction?.targetId===p.id?{attackerName:getP(r,r.reaction.attackerId)?.name||'Kẻ tấn công',source:r.reaction.source,options:p.hand.filter(c=>c.type==='MIRROR MONK'||c.type==='MARTYR').map(c=>c.type)}:null;const grave=r.grave?.pid===p.id?{options:r.grave.options.map(c=>({id:c.id,type:c.type,num:c.num,name:c.name,text:c.text,original:c.original}))}:null;const graveChoice=r.graveChoice?.pid===p.id?{card:r.graveChoice.card}:null;send(p,'private',{house:p.house,rank:p.rank,ronin:!!p.ronin,honor:p.honor,alive:p.alive,hand:p.hand||[],known:p.known||[],draft:r.draftHands?.[p.id]||[],reaction,grave,graveChoice})})}
+function makeDeck(){const a=[];for(let n=1;n<=6;n++){a.push({id:uid(),type:'SPY',num:n,name:'Gián điệp',text:'Xem bí mật thẻ Nhà của 1 người chơi khác.'});a.push({id:uid(),type:'MYSTIC',num:n,name:'Nhà tiên tri',text:'Xem bí mật thẻ Nhà và 1 lá Ninja của 1 người chơi khác.'});a.push({id:uid(),type:'BLIND ASSASSIN',num:n,name:'Sát thủ mù',text:'Chọn 1 người chơi và giết họ.'});a.push({id:uid(),type:'SHINOBI',num:n,name:'Ninja',text:'Xem thẻ Nhà của 1 người chơi; sau đó có thể giết họ.'})}const tricks=[['Shapeshifter','Kẻ biến hình','Xem Nhà của 2 người rồi bí mật đổi chỗ 2 thẻ Nhà.'],['Gravedigger','Kẻ đào mộ','Xem 2 lá Ninja đã bị bỏ khỏi Draft và chọn 1 lá. Có thể dùng ngay hoặc giữ lại để dùng sau.'],['Troublemaker','Kẻ gây rối','Xem Nhà của 1 người; có thể công khai thông tin đó.'],['Spirit Merchant','Thương nhân linh hồn','Xem thẻ Nhà hoặc Danh dự của 1 người; có thể đổi 1 token Danh dự với họ.'],['Thief','Kẻ trộm','Lộ Nhà của mình; lấy 1 token Danh dự từ 1 người có nhiều hơn mình.'],['Judge','Quan tòa','Lộ Nhà của mình; chọn 1 người và giết họ. Tăng lữ Gương/Kẻ tử vì đạo không thể phản ứng.']];tricks.forEach((x,i)=>a.push({id:uid(),type:'TRICKSTER',num:i+1,name:x[1],original:x[0],text:x[2]}));a.push({id:uid(),type:'MIRROR MONK',name:'Tăng lữ Gương',text:'PHẢN ỨNG: Khi Sát thủ mù hoặc Ninja chọn GIẾT bạn, lật lá này để giết kẻ tấn công thay bạn.'});a.push({id:uid(),type:'MARTYR',name:'Kẻ tử vì đạo',text:'PHẢN ỨNG: Khi Sát thủ mù hoặc Ninja chọn GIẾT bạn, lật lá này để nhận 1 token Danh dự rồi vẫn bị giết.'});a.push({id:uid(),type:'MASTERMIND',name:'Kẻ chủ mưu',text:'LẬT CUỐI VÒNG: Nếu còn sống, Nhà của bạn được tính là hạng 1 khi Lật thẻ Nhà.'});return a.sort(()=>Math.random()-.5)}
+function makeHouses(n){const a=[],team=Math.floor(n/2);for(let i=1;i<=team;i++)a.push({house:'Lotus',rank:i,ronin:false});for(let i=1;i<=team;i++)a.push({house:'Crane',rank:i,ronin:false});if(n%2)a.push({house:null,rank:null,ronin:true});return a.sort(()=>Math.random()-.5)}
+function startRound(r){r.status='draft';r.round++;r.phase=null;r.phaseIndex=0;r.log=[];r.winner=null;r.reaction=null;r.grave=null;r.graveChoice=null;r.revealed=[];r.resolving=-1;r.resolvingPid=null;const hs=makeHouses(r.players.length);r.deck=makeDeck();r.draftHands={};r.kept={};r.draftStage=1;r.discarded=[];r.players.forEach((p,i)=>{const h=hs[i];p.house=h.house;p.rank=h.rank;p.ronin=h.ronin;p.alive=true;p.hand=[];p.known=[];p.honor=p.honor||0;r.draftHands[p.id]=[r.deck.pop(),r.deck.pop(),r.deck.pop()];r.kept[p.id]=[]});push(r,`Vòng ${r.round}: phát Nhà bí mật và 3 lá Ninja.`);sync(r);botDraft(r)}
 function scoreCard(c){if(!c)return 0;if(c.type==='SHINOBI')return 8;if(c.type==='BLIND ASSASSIN')return 7;if(c.type==='MYSTIC')return 6;if(c.type==='SPY')return 5;if(c.type==='TRICKSTER')return 4;return 3}
-function botDraft(r){r.players.filter(p=>p.bot).forEach((p,i)=>setTimeout(()=>{if(r.status!=='draft')return;const h=r.draftHands[p.id]||[];if(!h.length)return;const c=h.slice().sort((a,b)=>scoreCard(b)-scoreCard(a))[0];pickDraft(r,p,c.id)},400+i*220))}
+function botDraft(r){r.players.filter(p=>p.bot).forEach((p,i)=>setTimeout(()=>{if(r.status!=='draft')return;const h=r.draftHands[p.id]||[];if(!h.length)return;pickDraft(r,p,h.slice().sort((a,b)=>scoreCard(b)-scoreCard(a))[0].id)},400+i*220))}
 function allDrafted(r){return r.players.every(p=>(r.kept[p.id]||[]).length>=r.draftStage)}
-function passDraft(r){const ids=r.players.map(p=>p.id),old=r.draftHands,next={};ids.forEach((id,i)=>{const receiver=ids[(i+1)%ids.length];next[receiver]=(old[id]||[]).slice()});r.draftHands=next;r.draftStage=2;push(r,'Vòng chọn 2: nhận 2 lá từ bên phải, giữ 1 lá và bỏ lá còn lại.');sync(r);botDraft(r)}
-function pickDraft(r,p,cardId){if(!p||!cardId)return;const h=r.draftHands[p.id]||[],i=h.findIndex(c=>c.id===cardId);if(i<0)return;const c=h.splice(i,1)[0];r.kept[p.id].push(c);if(allDrafted(r)){if(r.draftStage===1)passDraft(r);else{r.players.forEach(x=>{if(r.draftHands[x.id]?.length)r.discarded.push(...r.draftHands[x.id]);x.hand=(r.kept[x.id]||[]).slice(0,2)});beginNight(r)}}else sync(r)}
+function passDraft(r){const ids=r.players.map(p=>p.id),old=r.draftHands,next={};ids.forEach((id,i)=>next[ids[(i+1)%ids.length]]=(old[id]||[]).slice());r.draftHands=next;r.draftStage=2;push(r,'Vòng chọn 2: nhận 2 lá từ bên phải, giữ 1 lá và bỏ lá còn lại.');sync(r);botDraft(r)}
+function pickDraft(r,p,id){const h=r.draftHands[p.id]||[],i=h.findIndex(c=>c.id===id);if(i<0)return;r.kept[p.id].push(h.splice(i,1)[0]);if(allDrafted(r)){if(r.draftStage===1)passDraft(r);else{r.players.forEach(x=>{if(r.draftHands[x.id]?.length)r.discarded.push(...r.draftHands[x.id]);x.hand=(r.kept[x.id]||[]).slice(0,2)});beginNight(r)}}else sync(r)}
 function beginNight(r){r.status='night';r.phaseIndex=0;r.phase=phases[0];r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;push(r,'Đêm bắt đầu. Được phép nói chuyện, bluff và đánh lạc hướng.');sync(r);preparePhase(r)}
-function preparePhase(r){r.pending=new Set(r.players.filter(p=>p.alive&&p.hand.some(c=>c.type===r.phase)).map(p=>p.id));r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;sync(r);botPhase(r);if(r.pending.size===0)setTimeout(()=>revealPhase(r),150)}
-function botPhase(r){
-  if(r.status!=='night'||r.reaction)return;
-  r.players.filter(p=>p.bot&&p.alive&&r.pending.has(p.id)).forEach((p,i)=>setTimeout(()=>{
-    if(r.status!=='night'||!r.pending.has(p.id))return;
-    const c=p.hand.find(x=>x.type===r.phase);if(!c)return;
-    const targets=r.players.filter(x=>x.alive&&x.id!==p.id),t=targets.length?targets[Math.floor(Math.random()*targets.length)]:p;
-    let kill=c.type==='SHINOBI'?Math.random()<.55:c.type==='BLIND ASSASSIN'||c.original==='Judge';
-    let targetIds=[];if(c.original==='Shapeshifter'){const two=r.players.filter(x=>x.alive&&x.id!==p.id).slice(0,2);targetIds=two.map(x=>x.id)}
-    p.hand.splice(p.hand.indexOf(c),1);r.queue.push({pid:p.id,card:c,targetId:t?.id,targetIds,kill});r.pending.delete(p.id);push(r,`🤖 ${p.name} đã khóa một lá.`);sync(r);if(r.pending.size===0)revealPhase(r);
-  },550+i*250));
-}
-function play(r,p,m){
-  if(!p.alive||r.reaction||!r.pending?.has(p.id))return;
-  const i=p.hand.findIndex(c=>c.id===m.cardId&&c.type===r.phase);if(i<0)return;
-  const c=p.hand.splice(i,1)[0];r.pending.delete(p.id);r.queue.push({pid:p.id,card:c,targetId:m.targetId,targetIds:m.targetIds||[],kill:!!m.kill});push(r,`${p.name} đã khóa một lá.`);sync(r);if(r.pending.size===0)revealPhase(r);
-}
-function skip(r,p){if(r.reaction||!r.pending?.has(p.id))return;r.pending.delete(p.id);p.hand=p.hand.filter(c=>c.type!==r.phase);push(r,`${p.name} bỏ qua ${phaseVi(r.phase)}.`);sync(r);if(r.pending.size===0)revealPhase(r)}
-function revealPhase(r){if(r.status!=='night'||r.reaction)return;if(!r.queue.length)return advancePhase(r);r.queue.sort((a,b)=>(a.card.num||99)-(b.card.num||99));r.revealed=r.queue.map(x=>({pid:x.pid,playerName:getP(r,x.pid)?.name||'?',card:{type:x.card.type,num:x.card.num,name:x.card.name}}));r.resolving=0;r.resolvingPid=null;push(r,'Tất cả lá đã được mở cùng lúc. Bắt đầu hành động theo số trên lá: 1 → 6.');sync(r);setTimeout(()=>resolveNext(r),900)}
-function resolveNext(r){
-  if(r.status!=='night'||r.reaction)return;
-  if(r.resolving>=r.queue.length){r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;sync(r);return advancePhase(r)}
-  const q=r.queue[r.resolving];r.resolvingPid=q.pid;sync(r);
-  setTimeout(()=>{if(r.status!=='night'||r.reaction)return;const paused=resolveCard(r,q);if(paused)return;r.resolving++;r.resolvingPid=null;sync(r);setTimeout(()=>resolveNext(r),700)},700);
-}
-function needsReaction(r,attacker,target,source){return target&&target.alive&&attacker&&attacker.alive&&(source==='BLIND ASSASSIN'||source==='SHINOBI')&&target.hand.some(c=>c.type==='MIRROR MONK'||c.type==='MARTYR')}
-function triggerReaction(r,attacker,target,source,q){r.reaction={attackerId:attacker.id,targetId:target.id,source,q};push(r,`${target.name} có thể phản ứng với đòn của ${attacker.name}.`);sync(r);if(target.bot)setTimeout(()=>{const hasMirror=target.hand.some(c=>c.type==='MIRROR MONK');react(r,target,hasMirror?'MIRROR MONK':target.hand.some(c=>c.type==='MARTYR')?'MARTYR':'NONE')},500);return true}
-function resolveCard(r,q){
-  const p=getP(r,q.pid);if(!p||!p.alive)return false;const t=getP(r,q.targetId);
-  if(q.card.type==='SPY'){if(t&&t.alive)p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin});}
-  else if(q.card.type==='MYSTIC'){if(t&&t.alive){const n=t.hand.find(c=>['SPY','MYSTIC','TRICKSTER','BLIND ASSASSIN','SHINOBI'].includes(c.type));p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin,ninja:n?.name||'Không có'});}}
-  else if(q.card.type==='TRICKSTER')resolveTrick(r,q,p,t);
-  else if(q.card.type==='BLIND ASSASSIN'){if(t&&t.alive){if(needsReaction(r,p,t,'BLIND ASSASSIN'))return triggerReaction(r,p,t,'BLIND ASSASSIN',q);kill(r,t);}}
-  else if(q.card.type==='SHINOBI'){if(t&&t.alive){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin});if(q.kill){if(needsReaction(r,p,t,'SHINOBI'))return triggerReaction(r,p,t,'SHINOBI',q);kill(r,t);}}}
-  return false;
-}
-function resolveTrick(r,q,p,t){const n=q.card.original;if(n==='Shapeshifter'){const a=getP(r,q.targetIds?.[0]),b=getP(r,q.targetIds?.[1]);if(a&&b&&a!==b){[a.house,a.rank,a.ronin,b.house,b.rank,b.ronin]=[b.house,b.rank,b.ronin,a.house,a.rank,a.ronin];push(r,`${p.name} đã bí mật đổi Nhà của hai người.`)}}else if(n==='Gravedigger'){if(r.discarded.length)p.hand.push(r.discarded.splice(Math.floor(Math.random()*r.discarded.length),1)[0]);}else if(t&&n==='Troublemaker'){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin});push(r,`${p.name} đã xem Nhà của ${t.name}.`)}else if(t&&n==='Spirit Merchant'){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin,honor:t.honor});}else if(t&&n==='Thief'){if(t.honor>p.honor){t.honor--;p.honor++;push(r,`${p.name} đã lấy 1 token Danh dự.`)}}else if(t&&n==='Judge'){if(t.alive)kill(r,t)}}
-function kill(r,t){if(!t||!t.alive)return;t.alive=false;push(r,`${t.name} bị hạ.`)}
-function react(r,p,kind){
-  if(!r.reaction||r.reaction.targetId!==p.id||!p.alive)return;
-  const attacker=getP(r,r.reaction.attackerId);const source=r.reaction.source;
-  if(kind==='MIRROR MONK'&&!p.hand.some(c=>c.type==='MIRROR MONK'))return;
-  if(kind==='MARTYR'&&!p.hand.some(c=>c.type==='MARTYR'))return;
-  if(kind!=='MIRROR MONK'&&kind!=='MARTYR'&&kind!=='NONE')return;
-  if(kind==='NONE'){r.reaction=null;sync(r);return finishReaction(r)}
-  const idx=p.hand.findIndex(c=>c.type===kind);if(idx<0)return;p.hand.splice(idx,1);
-  r.reaction=null;
-  if(kind==='MIRROR MONK'){
-    push(r,`${p.name} lật Tăng lữ Gương và phản đòn ${attacker?.name||'kẻ tấn công'}.`);
-    if(attacker?.alive)kill(r,attacker);
-  }else{
-    const token=honorToken();p.honor+=token;push(r,`${p.name} lật Kẻ tử vì đạo và nhận ${token} Danh dự, nhưng vẫn bị hạ.`);kill(r,p);
-  }
-  sync(r);finishReaction(r);
-}
-function finishReaction(r){r.resolving++;r.resolvingPid=null;sync(r);setTimeout(()=>resolveNext(r),700)}
+function preparePhase(r){r.pending=new Set(r.players.filter(p=>p.alive&&p.hand.some(c=>c.type===r.phase)).map(p=>p.id));r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;sync(r);botPhase(r);if(!r.pending.size)setTimeout(()=>revealPhase(r),150)}
+function botPhase(r){if(r.status!=='night'||r.reaction||r.grave)return;r.players.filter(p=>p.bot&&p.alive&&r.pending.has(p.id)).forEach((p,i)=>setTimeout(()=>{if(r.status!=='night'||!r.pending.has(p.id))return;const c=p.hand.find(x=>x.type===r.phase);if(!c)return;const targets=r.players.filter(x=>x.alive&&x.id!==p.id),t=targets[Math.floor(Math.random()*targets.length)];let kill=c.type==='SHINOBI'?Math.random()<.55:c.type==='BLIND ASSASSIN'||c.original==='Judge';let targetIds=c.original==='Shapeshifter'?r.players.filter(x=>x.alive&&x.id!==p.id).slice(0,2).map(x=>x.id):[];p.hand.splice(p.hand.indexOf(c),1);r.pending.delete(p.id);r.queue.push({pid:p.id,card:c,targetId:t?.id,targetIds,kill});push(r,`🤖 ${p.name} đã khóa một lá.`);sync(r);if(!r.pending.size)revealPhase(r)},550+i*250))}
+function play(r,p,m){if(!p.alive||r.reaction||r.grave||!r.pending?.has(p.id))return;const i=p.hand.findIndex(c=>c.id===m.cardId&&c.type===r.phase);if(i<0)return;const c=p.hand.splice(i,1)[0];r.pending.delete(p.id);r.queue.push({pid:p.id,card:c,targetId:m.targetId,targetIds:m.targetIds||[],kill:!!m.kill});push(r,`${p.name} đã khóa một lá.`);sync(r);if(!r.pending.size)revealPhase(r)}
+function skip(r,p){if(r.reaction||r.grave||!r.pending?.has(p.id))return;r.pending.delete(p.id);p.hand=p.hand.filter(c=>c.type!==r.phase);push(r,`${p.name} bỏ qua ${phaseVi(r.phase)}.`);sync(r);if(!r.pending.size)revealPhase(r)}
+function revealPhase(r){if(r.status!=='night'||r.reaction||r.grave)return;if(!r.queue.length)return advancePhase(r);r.queue.sort((a,b)=>(a.card.num||99)-(b.card.num||99));r.revealed=r.queue.map(x=>({pid:x.pid,playerName:getP(r,x.pid)?.name||'?',card:{type:x.card.type,num:x.card.num,name:x.card.name}}));r.resolving=0;r.resolvingPid=null;push(r,'Tất cả lá đã được mở cùng lúc. Bắt đầu hành động theo số trên lá: 1 → 6.');sync(r);setTimeout(()=>resolveNext(r),900)}
+function resolveNext(r){if(r.status!=='night'||r.reaction||r.grave)return;if(r.resolving>=r.queue.length){r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;sync(r);return advancePhase(r)}const q=r.queue[r.resolving];r.resolvingPid=q.pid;sync(r);setTimeout(()=>{if(r.status!=='night'||r.reaction||r.grave)return;const paused=resolveCard(r,q);if(paused)return;r.resolving++;r.resolvingPid=null;sync(r);setTimeout(()=>resolveNext(r),700)},700)}
+function needsReaction(r,a,t,s){return t?.alive&&a?.alive&&(s==='BLIND ASSASSIN'||s==='SHINOBI')&&t.hand.some(c=>c.type==='MIRROR MONK'||c.type==='MARTYR')}
+function triggerReaction(r,a,t,s,q){r.reaction={attackerId:a.id,targetId:t.id,source:s,q};push(r,`${t.name} có thể phản ứng với đòn của ${a.name}.`);sync(r);if(t.bot)setTimeout(()=>react(r,t,t.hand.some(c=>c.type==='MIRROR MONK')?'MIRROR MONK':t.hand.some(c=>c.type==='MARTYR')?'MARTYR':'NONE'),500);return true}
+function resolveCard(r,q){const p=getP(r,q.pid);if(!p?.alive)return false;const t=getP(r,q.targetId);if(q.card.type==='SPY'){if(t?.alive)p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin})}else if(q.card.type==='MYSTIC'){if(t?.alive){const n=t.hand.find(c=>['SPY','MYSTIC','TRICKSTER','BLIND ASSASSIN','SHINOBI'].includes(c.type));p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin,ninja:n?.name||'Không có'})}}else if(q.card.type==='TRICKSTER')return resolveTrick(r,q,p,t)||false;else if(q.card.type==='BLIND ASSASSIN'){if(t?.alive){if(needsReaction(r,p,t,'BLIND ASSASSIN'))return triggerReaction(r,p,t,'BLIND ASSASSIN',q);kill(r,t)}}else if(q.card.type==='SHINOBI'){if(t?.alive){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin});if(q.kill){if(needsReaction(r,p,t,'SHINOBI'))return triggerReaction(r,p,t,'SHINOBI',q);kill(r,t)}}}return false}
+function resolveTrick(r,q,p,t){const n=q.card.original;if(n==='Shapeshifter'){const a=getP(r,q.targetIds?.[0]),b=getP(r,q.targetIds?.[1]);if(a&&b&&a!==b){[a.house,a.rank,a.ronin,b.house,b.rank,b.ronin]=[b.house,b.rank,b.ronin,a.house,a.rank,a.ronin];push(r,`${p.name} đã bí mật đổi Nhà của hai người.`)}}else if(n==='Gravedigger'){if(r.discarded.length<2){if(r.discarded.length)p.hand.push(r.discarded.pop());return false}const shuffled=r.discarded.slice().sort(()=>Math.random()-.5);r.grave={pid:p.id,options:shuffled.slice(0,2),q};sync(r);if(p.bot)setTimeout(()=>gravePick(r,p,r.grave.options[0].id),500);return true}else if(t&&n==='Troublemaker'){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin});push(r,`${p.name} đã xem Nhà của ${t.name}.`)}else if(t&&n==='Spirit Merchant'){p.known.push({name:t.name,house:t.house,rank:t.rank,ronin:t.ronin,honor:t.honor})}else if(t&&n==='Thief'){if(t.honor>p.honor){t.honor--;p.honor++;push(r,`${p.name} đã lấy 1 token Danh dự.`)}}else if(t&&n==='Judge'){kill(r,t)}return false}
+function gravePick(r,p,id){if(!r.grave||r.grave.pid!==p.id)return;const c=r.grave.options.find(x=>x.id===id);if(!c)return;r.discarded=r.discarded.filter(x=>x.id!==c.id);r.grave=null;r.graveChoice={pid:p.id,card:c};sync(r);if(p.bot)graveKeep(r,p)}
+function graveKeep(r,p){if(!r.graveChoice||r.graveChoice.pid!==p.id)return;p.hand.push(r.graveChoice.card);push(r,`${p.name} đã giữ lá ${p.hand.at(-1).name} để dùng sau.`);r.graveChoice=null;sync(r);finishPaused(r)}
+function graveUse(r,p,m){if(!r.graveChoice||r.graveChoice.pid!==p.id)return;const c=r.graveChoice.card;r.graveChoice=null;push(r,`${p.name} dùng ngay lá ${c.name} lấy từ Kẻ đào mộ.`);sync(r);const paused=resolveCard(r,{pid:p.id,card:c,targetId:m.targetId,targetIds:m.targetIds||[],kill:!!m.kill});if(paused)return;finishPaused(r)}
+function finishPaused(r){r.resolving++;r.resolvingPid=null;sync(r);setTimeout(()=>resolveNext(r),700)}
+function kill(r,t){if(!t?.alive)return;t.alive=false;push(r,`${t.name} bị hạ.`)}
+function react(r,p,k){if(!r.reaction||r.reaction.targetId!==p.id||!p.alive)return;const a=getP(r,r.reaction.attackerId);if(k==='NONE'){r.reaction=null;sync(r);return finishPaused(r)}const idx=p.hand.findIndex(c=>c.type===k);if(idx<0)return;p.hand.splice(idx,1);r.reaction=null;if(k==='MIRROR MONK'){push(r,`${p.name} lật Tăng lữ Gương và phản đòn ${a?.name||'kẻ tấn công'}.`);kill(r,a)}else if(k==='MARTYR'){const token=honorToken();p.honor+=token;push(r,`${p.name} lật Kẻ tử vì đạo và nhận ${token} Danh dự, nhưng vẫn bị hạ.`);kill(r,p)}sync(r);finishPaused(r)}
 function advancePhase(r){r.phaseIndex++;r.queue=[];r.revealed=[];r.resolving=-1;r.resolvingPid=null;if(r.phaseIndex>=phases.length)return houseReveal(r);r.phase=phases[r.phaseIndex];push(r,`Chuyển sang ${phaseVi(r.phase)}.`);sync(r);preparePhase(r)}
-function houseReveal(r){
-  r.status='round_end';r.phase='HOUSE REVEAL';
-  const live=r.players.filter(p=>p.alive&&!p.ronin),groups={Lotus:[],Crane:[]};
-  live.forEach(p=>groups[p.house]?.push(p));Object.values(groups).forEach(a=>a.sort((x,y)=>x.rank-y.rank));
-  let winner=null;const a=groups.Lotus,b=groups.Crane;
-  for(let i=0;i<Math.max(a.length,b.length);i++){const ar=a[i]?.rank??Infinity,br=b[i]?.rank??Infinity;if(ar!==br){winner=ar<br?'Lotus':'Crane';break}}
-  const mm=r.players.find(p=>p.alive&&!p.ronin&&p.hand.some(c=>c.type==='MASTERMIND'));if(mm)winner=mm.house;
-  r.winner=winner;
-  if(winner){r.players.filter(p=>p.house===winner).forEach(p=>p.honor+=honorToken());push(r,`${houseVi(winner)} thắng vòng. Thành viên Nhà thắng nhận 1 token Danh dự.`)}
-  else{r.players.filter(p=>p.alive).forEach(p=>p.honor+=honorToken());push(r,'Không Nhà nào thắng do hòa hoàn toàn. Mỗi người còn sống nhận 1 token Danh dự.')}
-  const ronin=r.players.find(p=>p.ronin&&p.alive);if(ronin){ronin.honor+=honorToken();push(r,`${ronin.name} là Lãng khách và sống sót nên nhận 1 token Danh dự.`)}
-  sync(r);if(r.players.some(p=>p.honor>=10))r.status='ended';
-}
-
-wss.on('connection',ws=>{
-  let me=null,r=null;
-  ws.on('message',raw=>{
-    let m;try{m=JSON.parse(raw)}catch{return}
-    if(m.type==='create'){
-      const code=Math.random().toString(36).slice(2,7).toUpperCase();r={code,status:'lobby',players:[],host:null,round:0,log:[]};rooms.set(code,r);
-      me={id:uid(),name:(m.name||'Người chơi').slice(0,20),ws,honor:0,alive:true,bot:false};r.players.push(me);r.host=me.id;send(me,'joined',{code,id:me.id});sync(r);return;
-    }
-    if(m.type==='join'){
-      r=rooms.get(String(m.code||'').toUpperCase());if(!r||r.status!=='lobby'||r.players.length>=11)return send({ws},'error',{message:'Phòng không tồn tại hoặc đã bắt đầu.'});
-      me={id:uid(),name:(m.name||'Người chơi').slice(0,20),ws,honor:0,alive:true,bot:false};r.players.push(me);send(me,'joined',{code:r.code,id:me.id});push(r,`${me.name} đã vào phòng.`);sync(r);return;
-    }
-    if(!r||!me)return;
-    if(m.type==='addBot'){if(r.host!==me.id||r.status!=='lobby'||r.players.length>=11)return;const bot={id:uid(),name:`Bot ${r.players.filter(p=>p.bot).length+1}`,ws:null,honor:0,alive:true,bot:true};r.players.push(bot);push(r,`${bot.name} đã tham gia.`);sync(r);return;}
-    if(m.type==='start'){if(r.host===me.id&&r.status==='lobby'&&r.players.length>=4)startRound(r);return;}
-    if(m.type==='draftPick'){if(r.status==='draft')pickDraft(r,me,m.cardId);return;}
-    if(m.type==='play'){if(r.status==='night')play(r,me,m);return;}
-    if(m.type==='skip'){if(r.status==='night')skip(r,me);return;}
-    if(m.type==='react'){if(r.status==='night')react(r,me,m.kind);return;}
-    if(m.type==='pause'){if(r.status==='night'||r.status==='draft'){r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.phase==='HOUSE REVEAL'?'round_end':r.phase?'night':'lobby';sync(r)}return;}
-    if(m.type==='end'){if(r.host===me.id){r.status='ended';push(r,'Game đã kết thúc.');sync(r)}return;}
-    if(m.type==='continueRound'){if(r.host===me.id&&r.status==='round_end')startRound(r);return;}
-    if(m.type==='chat'){const text=String(m.text||'').trim().slice(0,300);if(text)r.players.forEach(p=>send(p,'chat',{name:me.name,text}));return;}
-  });
-  ws.on('close',()=>{if(me&&r){me.ws=null;sync(r)}});
-});
-
-server.listen(process.env.PORT||3000,()=>console.log('Night of the Ninja online'));
+function houseReveal(r){r.status='round_end';r.phase='HOUSE REVEAL';const live=r.players.filter(p=>p.alive&&!p.ronin),groups={Lotus:[],Crane:[]};live.forEach(p=>groups[p.house]?.push(p));Object.values(groups).forEach(a=>a.sort((x,y)=>x.rank-y.rank));let winner=null;const a=groups.Lotus,b=groups.Crane;for(let i=0;i<Math.max(a.length,b.length);i++){const ar=a[i]?.rank??Infinity,br=b[i]?.rank??Infinity;if(ar!==br){winner=ar<br?'Lotus':'Crane';break}}const mm=r.players.find(p=>p.alive&&!p.ronin&&p.hand.some(c=>c.type==='MASTERMIND'));if(mm)winner=mm.house;r.winner=winner;if(winner){r.players.filter(p=>p.house===winner).forEach(p=>p.honor+=honorToken());push(r,`${houseVi(winner)} thắng vòng. Thành viên Nhà thắng nhận 1 token Danh dự.`)}else{r.players.filter(p=>p.alive).forEach(p=>p.honor+=honorToken());push(r,'Không Nhà nào thắng do hòa hoàn toàn. Mỗi người còn sống nhận 1 token Danh dự.')}const ronin=r.players.find(p=>p.ronin&&p.alive);if(ronin){ronin.honor+=honorToken();push(r,`${ronin.name} là Lãng khách và sống sót nên nhận 1 token Danh dự.`)}sync(r);if(r.players.some(p=>p.honor>=10))r.status='ended'}
+wss.on('connection',ws=>{let me=null,r=null;ws.on('message',raw=>{let m;try{m=JSON.parse(raw)}catch{return}if(m.type==='create'){const code=Math.random().toString(36).slice(2,7).toUpperCase();r={code,status:'lobby',players:[],host:null,round:0,log:[]};rooms.set(code,r);me={id:uid(),name:(m.name||'Người chơi').slice(0,20),ws,honor:0,alive:true,bot:false};r.players.push(me);r.host=me.id;send(me,'joined',{code,id:me.id});sync(r);return}if(m.type==='join'){r=rooms.get(String(m.code||'').toUpperCase());if(!r||r.status!=='lobby'||r.players.length>=11)return send({ws},'error',{message:'Phòng không tồn tại hoặc đã bắt đầu.'});me={id:uid(),name:(m.name||'Người chơi').slice(0,20),ws,honor:0,alive:true,bot:false};r.players.push(me);send(me,'joined',{code:r.code,id:me.id});push(r,`${me.name} đã vào phòng.`);sync(r);return}if(!r||!me)return;if(m.type==='addBot'){if(r.host!==me.id||r.status!=='lobby'||r.players.length>=11)return;const bot={id:uid(),name:`Bot ${r.players.filter(p=>p.bot).length+1}`,ws:null,honor:0,alive:true,bot:true};r.players.push(bot);push(r,`${bot.name} đã tham gia.`);sync(r);return}if(m.type==='start'){if(r.host===me.id&&r.status==='lobby'&&r.players.length>=4)startRound(r);return}if(m.type==='draftPick'){if(r.status==='draft')pickDraft(r,me,m.cardId);return}if(m.type==='play'){if(r.status==='night')play(r,me,m);return}if(m.type==='skip'){if(r.status==='night')skip(r,me);return}if(m.type==='react'){if(r.status==='night')react(r,me,m.kind);return}if(m.type==='gravePick'){if(r.status==='night')gravePick(r,me,m.cardId);return}if(m.type==='graveKeep'){if(r.status==='night')graveKeep(r,me);return}if(m.type==='graveUse'){if(r.status==='night')graveUse(r,me,m);return}if(m.type==='pause'){if(r.status==='night'||r.status==='draft'){r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.phase==='HOUSE REVEAL'?'round_end':r.phase?'night':'lobby';sync(r)}return}if(m.type==='end'){if(r.host===me.id){r.status='ended';push(r,'Game đã kết thúc.');sync(r)}return}if(m.type==='continueRound'){if(r.host===me.id&&r.status==='round_end')startRound(r);return}if(m.type==='chat'){const text=String(m.text||'').trim().slice(0,300);if(text)r.players.forEach(p=>send(p,'chat',{name:me.name,text}));return}});ws.on('close',()=>{if(me&&r){me.ws=null;sync(r)}})});server.listen(process.env.PORT||3000,()=>console.log('Night of the Ninja online'));
