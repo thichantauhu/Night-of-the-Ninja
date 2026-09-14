@@ -1,5 +1,6 @@
 /* Strict two-step Draft UI: never treat the two original leftover cards as the passed cards. */
 (function(){
+  // draftSelected is intentionally shared with ui-fixes.js. Do not redeclare it here.
   const previousRenderPrivate=window.renderPrivate;
   window.renderPrivate=function(){
     if(!room||room.status!=='draft') return previousRenderPrivate();
