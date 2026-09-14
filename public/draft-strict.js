@@ -8,16 +8,19 @@ function strictDraftView(){
   const draft=lastPrivate.draft||[];
   const selected=strictFirstPick||[];
   if(stage===1){
-    const waiting=room.players.filter(p=>!p.kicked).length-(room.draftKept?Object.values(room.draftKept).filter(n=>n>=1).length:0);
-    let html='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH</div><div class="cardgrid">'+selected.map(c=>fixedCard(c,false,true)).join('')+'</div>';
-    if(selected.length)html+='<p class="draft-hint">Đã chọn 1 lá. Đang chờ tất cả người chơi chọn lá đầu tiên.</p>';
-    else html+='<p class="draft-hint">Chọn 1 lá. Lá được chọn sẽ vào Lá Ninja của mình.</p>';
+    const waiting=Math.max(0,(room.players||[]).filter(p=>!p.kicked).length-(room.draftKept?Object.values(room.draftKept).filter(n=>n>=1).length:0));
+    let html='<div class="draft-select"><div class="hand-title">LÁ NINJA — CHỌN LÁ 1/2</div>';
+    if(selected.length){
+      html+='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH</div><div class="cardgrid">'+selected.slice(0,1).map(c=>fixedCard(c,false,true)).join('')+'</div><p class="draft-hint">Đã chọn 1 lá. Đang chờ tất cả người chơi chọn lá đầu tiên.</p></div>';
+    }else{
+      html+='<p class="draft-hint">Chọn đúng 1 trong 3 lá để giữ lại. Lá được chọn sẽ vào Lá Ninja của mình.</p><div class="cardgrid">'+draft.map(c=>fixedCard(c,true)).join('')+'</div>';
+    }
     if(waiting>0)html+='<p class="draft-wait">Còn '+waiting+' người chưa chọn lá đầu tiên.</p>';
     html+='</div><div id="actionArea"></div>';
     return html;
   }
-  const already=selected.length?selected:[];
-  let html='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH</div><div class="cardgrid">'+already.map(c=>fixedCard(c,false,true)).join('')+'</div></div>';
+  const already=selected.slice(0,1);
+  let html='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH — 1/2</div><div class="cardgrid">'+already.map(c=>fixedCard(c,false,true)).join('')+'</div></div>';
   if(draft.length){
     html+='<div class="draft-select"><div class="hand-title">LÁ NINJA — CHỌN LÁ 2/2</div><p class="draft-hint">2 lá bỏ của người bên tay phải đã được chuyền cho bạn. Chọn 1 lá để giữ; lá còn lại sẽ bỏ.</p><div class="cardgrid">'+draft.map(c=>fixedCard(c,true)).join('')+'</div></div>';
   }else if(already.length<2){
