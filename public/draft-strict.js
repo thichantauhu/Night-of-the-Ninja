@@ -1,6 +1,13 @@
 /* Strict Draft flow: first pick is completed by everyone before any passed cards appear. */
 let strictDraftRound=null;
 let strictFirstPick=[];
+function ownDraftCards(selected){
+  const cards=[selected?.[0]||null,selected?.[1]||null];
+  return '<div class="cardgrid draft-owned-grid">'+cards.map((c,i)=>c
+    ? fixedCard(c,false,true)
+    : '<div class="ncard draft-slot-empty"><span class="type">LÁ '+(i+1)+'</span><span class="draft-empty-text">Chưa chọn</span></div>'
+  ).join('')+'</div>';
+}
 function strictDraftView(){
   if(!room||room.status!=='draft')return null;
   if(strictDraftRound!==room.round){strictDraftRound=room.round;strictFirstPick=[]}
@@ -10,23 +17,24 @@ function strictDraftView(){
   if(stage===1){
     const waiting=Math.max(0,(room.players||[]).filter(p=>!p.kicked).length-(room.draftKept?Object.values(room.draftKept).filter(n=>n>=1).length:0));
     let html='<div class="draft-select"><div class="hand-title">LÁ NINJA — CHỌN LÁ 1/2</div>';
+    html+='<p class="draft-hint">Chọn đúng 1 trong 3 lá để giữ lại.</p>';
     if(selected.length){
-      html+='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH</div><div class="cardgrid">'+selected.slice(0,1).map(c=>fixedCard(c,false,true)).join('')+'</div><p class="draft-hint">Đã chọn 1 lá. Đang chờ tất cả người chơi chọn lá đầu tiên.</p></div>';
+      html+='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH — 1/2</div>'+ownDraftCards(selected)+'</div>';
+      html+='<p class="draft-hint">Đã chọn 1 lá. Đang chờ tất cả người chơi chọn lá đầu tiên.</p>';
     }else{
-      html+='<p class="draft-hint">Chọn đúng 1 trong 3 lá để giữ lại. Lá được chọn sẽ vào Lá Ninja của mình.</p><div class="cardgrid">'+draft.map(c=>fixedCard(c,true)).join('')+'</div>';
+      html+='<div class="cardgrid">'+draft.map(c=>fixedCard(c,true)).join('')+'</div>';
     }
     if(waiting>0)html+='<p class="draft-wait">Còn '+waiting+' người chưa chọn lá đầu tiên.</p>';
     html+='</div><div id="actionArea"></div>';
     return html;
   }
-  const already=selected.slice(0,1);
-  let html='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH — 1/2</div><div class="cardgrid">'+already.map(c=>fixedCard(c,false,true)).join('')+'</div></div>';
+  let html='<div class="draft-owned"><div class="hand-title">LÁ NINJA CỦA MÌNH — '+Math.min(selected.length,2)+'/2</div>'+ownDraftCards(selected)+'</div>';
   if(draft.length){
     html+='<div class="draft-select"><div class="hand-title">LÁ NINJA — CHỌN LÁ 2/2</div><p class="draft-hint">2 lá bỏ của người bên tay phải đã được chuyền cho bạn. Chọn 1 lá để giữ; lá còn lại sẽ bỏ.</p><div class="cardgrid">'+draft.map(c=>fixedCard(c,true)).join('')+'</div></div>';
-  }else if(already.length<2){
+  }else if(selected.length<2){
     html+='<div class="draft-select"><p class="draft-hint">Đang chờ 2 lá từ người bên tay phải...</p></div>';
   }else{
-    html+='<p class="draft-hint">Đã chọn lá thứ 2. Đang chờ tất cả người chơi hoàn tất...</p>';
+    html+='<p class="draft-hint">Đã chọn đủ 2 lá. Đang bắt đầu Đêm...</p>';
   }
   return html+'<div id="actionArea"></div>';
 }
@@ -63,5 +71,14 @@ function strictPick(id,draft){
     send('draftPick',{cardId:id});
   }
 }
+const strictDraftStyle=document.createElement('style');
+strictDraftStyle.textContent=`
+.draft-owned-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.draft-owned-grid .ncard{min-width:0}
+.draft-slot-empty{cursor:default!important;border:1px dashed #cfd3d8;background:#f8f9fb;color:#a0a4ab;box-shadow:none!important;transform:none!important;justify-content:center;align-items:center}
+.draft-slot-empty .type{color:#8f949c!important}
+.draft-empty-text{font-size:13px;font-weight:700;margin-top:8px}
+`;
+document.head.appendChild(strictDraftStyle);
 window.renderPrivate=strictRenderPrivate;
 window.pick=strictPick;
