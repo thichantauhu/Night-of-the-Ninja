@@ -13,10 +13,7 @@ if(!s.includes('function kickPlayer(')){const pos=s.indexOf(marker);if(pos<0)thr
 replaceExact("if(r.host===me.id&&r.status==='lobby'&&r.players.length>=4)startRound(r);","if(r.status==='lobby'&&r.players.length>=4)startRound(r);");
 replaceExact("if(r.host===me.id){r.status='ended';push(r,'Game đã kết thúc.');sync(r)}","{r.status='ended';push(r,'Game đã kết thúc.');sync(r)}");
 replaceExact("if(r.host===me.id&&r.status==='round_end')startRound(r);","if(r.status==='round_end')startRound(r);");
-replaceExact("if(r.status==='night'||r.status==='draft'){r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.phase==='HOUSE REVEAL'?'round_end':r.phase?'night':'lobby';sync(r)}","if(r.status==='night'||r.status==='draft'){r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.phase==='HOUSE REVEAL'?'round_end':r.phase?'night':'lobby';sync(r)}");
+replaceExact("if(r.status==='night'||r.status==='draft'){r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.phase==='HOUSE REVEAL'?'round_end':r.phase?'night':'lobby';sync(r)}","if(r.status==='night'||r.status==='draft'){r.pausedFrom=r.status;r.status='paused';sync(r)}else if(r.status==='paused'){r.status=r.pausedFrom||'lobby';r.pausedFrom=null;sync(r);if(r.status==='draft')botDraft(r);else if(r.status==='night'){if(r.reaction||r.grave){}else if((r.queue||[]).length&&r.resolving>=0)setTimeout(()=>resolveNext(r),100);else preparePhase(r)}}");
 const chatMarker="if(m.type==='chat'){const text=String(m.text||'').trim().slice(0,300);";
 if(!s.includes("if(m.type==='kick')")){const pos=s.indexOf(chatMarker);if(pos<0)throw new Error('Cannot insert kick handler');s=s.slice(0,pos)+"if(m.type==='kick'){kickPlayer(r,me,m.targetId);return;}"+s.slice(pos);}
-const oldReturn="return a.sort(()=>Math.random()-.5)}";
-const newReturn="const seen=new Set(),unique=a.filter(c=>{const key=c.type+':'+(c.num??c.original??c.name);if(seen.has(key))return false;seen.add(key);return true});if(unique.length!==33)throw new Error('Deck integrity error: duplicate Ninja card detected');return unique.sort(()=>Math.random()-.5)}";
-if(s.includes(oldReturn))s=s.replace(oldReturn,newReturn);
 fs.writeFileSync(path,s);
