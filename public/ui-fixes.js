@@ -11,3 +11,5 @@ function showActionFixed(c){const area=$('#actionArea');if(!area)return;if(c.typ
 function confirmTargetsFixed(cardId,mode='normal'){const buttons=[...document.querySelectorAll('#actionArea .target-btn.selected')],ids=buttons.map(b=>b.dataset.target);if(ids.length!==2){setMsg('Cần chọn đúng 2 người.');return}if(room.status!=='night'){setMsg('Game không còn ở pha hành động.');return}const confirmBtn=document.querySelector('#actionArea .confirm-target');if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='Đang xác nhận...'}send('play',{cardId,targetIds:ids});if($('#actionArea'))$('#actionArea').innerHTML='<div class="target-wait">Đã xác nhận 2 mục tiêu. Đang chuyển lượt...</div>'}
 window.confirmTargets=confirmTargetsFixed;
 window.renderPrivate=renderPrivateFixed;window.pick=pickFixed;
+const baseRender=render;
+render=function(){baseRender();if(room?.status==='draft'){const e=$('#center .empty');if(e)e.innerHTML='<h3>CHỌN BÀI</h3><p>Chọn 1 lá để giữ lại. 2 lá còn lại sẽ chuyền cho người bên tay phải. Sau đó nhận 2 lá từ người bên tay trái, chọn 1 lá và bỏ lá còn lại.</p>';}}
